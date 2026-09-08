@@ -20,10 +20,10 @@ export default async function ProjectDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ status?: string; q?: string }>
+  searchParams: Promise<{ status?: string; q?: string; edit?: string }>
 }) {
   const { id } = await params
-  const { status, q } = await searchParams
+  const { status, q, edit } = await searchParams
 
   const supabase = await createClient()
 
@@ -34,6 +34,18 @@ export default async function ProjectDetailPage({
     .maybeSingle()
 
   if (error || !project) notFound()
+
+  // ---- 编辑模式：?edit=任务ID 时，查出这条任务传给表单预填 ----
+  let editTask = null
+  if (edit) {
+    const { data } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', edit)
+      .eq('project_id', id) // 双重条件：必须是这个项目下的任务
+      .maybeSingle()
+    if (data) editTask = data
+  }
 
   // ---- 任务查询：RLS 过滤归属 + 可选状态筛选 + 可选标题搜索 ----
   let query = supabase.from('tasks').select('*').eq('project_id', id)
@@ -86,7 +98,8 @@ export default async function ProjectDetailPage({
       <div className="mt-8">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-900">任务</h2>
-          <TaskForm projectId={project.id} />
+          {/* 编辑模式：传 task 让表单预填；否则是新建模式 */}
+          <TaskForm projectId={project.id} task={editTask} />
         </div>
 
         {/* 状态筛选标签 */}

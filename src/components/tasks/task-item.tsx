@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { TASK_STATUSES, TASK_STATUS_LABELS, type TaskStatus } from '@/lib/tasks'
 import { updateTaskStatus, deleteTask } from '@/app/actions/tasks'
 
@@ -56,6 +57,14 @@ export default function TaskItem({ task, projectId }: TaskItemProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
+          {/* 编辑：跳到 ?edit=任务ID，详情页会展开编辑表单 */}
+          <Link
+            href={`/projects/${projectId}?edit=${task.id}`}
+            className="text-sm text-zinc-500 hover:text-zinc-700"
+          >
+            编辑
+          </Link>
+
           {/* 状态切换：下拉框，选择即提交 */}
           <form action={updateTaskStatus}>
             <input type="hidden" name="id" value={task.id} />
