@@ -47,3 +47,63 @@ export async function createProject(
 
   redirect('/projects')
 }
+
+/** 编辑项目：只更新名称和描述 */
+export async function updateProject(
+  _prevState: ProjectState,
+  formData: FormData
+): Promise<ProjectState> {
+  const id = String(formData.get('id') ?? '')
+  const name = String(formData.get('name') ?? '').trim()
+  const description = String(formData.get('description') ?? '').trim()
+
+  if (!id) return { error: '缺少项目 ID' }
+  if (!name) return { error: '项目名称不能为空' }
+  if (name.length > 100) return { error: '项目名称不能超过 100 个字' }
+
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: '未登录，请先登录' }
+
+  const { error } = await supabase
+    .from('projects')
+    .update({
+      name,
+      description: description || null,
+      updated_at: new Date().toISOString(),
+    })
+    // 双重条件：id 必须匹配，且 user_id 必须是当前用户
+    // （即便 RLS 有漏洞，这里也拦一道）
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) return { error: error.message }
+
+  redirect(`/projects/${id}`)
+}
+
+/**
+ * 删除项目
+ *
+ * 不需要 useActionState：没有错误要显示，成功直接跳转。
+ * 注意：数据库里外键是 ON DELETE CASCADE —— 删除项目时，
+ * 该项目下的所有任务会由数据库自动连带删除，不用我们写代码
+ */
+export async function deleteProject(formData: FormData) {
+  const id = String(formData.get('id') ?? '')
+  if (!id) return
+
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase.from('projects').delete().eq('id', id).eq('user_id', user.id)
+
+  redirect('/projects')
+}
