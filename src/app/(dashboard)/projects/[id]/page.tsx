@@ -4,7 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import DeleteProjectButton from '@/components/projects/delete-project-button'
 import TaskForm from '@/components/tasks/task-form'
 import TaskItem from '@/components/tasks/task-item'
-import { TASK_STATUSES, TASK_STATUS_LABELS } from '@/lib/tasks'
+import {
+  TASK_STATUSES,
+  TASK_STATUS_LABELS,
+  TASK_PRIORITIES,
+  TASK_PRIORITY_LABELS,
+} from '@/lib/tasks'
 
 /**
  * 项目详情页 + 任务列表（路由：/projects/[id]）
@@ -20,10 +25,10 @@ export default async function ProjectDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ status?: string; q?: string; edit?: string }>
+  searchParams: Promise<{ status?: string; q?: string; edit?: string; priority?: string }>
 }) {
   const { id } = await params
-  const { status, q, edit } = await searchParams
+  const { status, q, edit, priority } = await searchParams
 
   const supabase = await createClient()
 
@@ -55,15 +60,26 @@ export default async function ProjectDetailPage({
     status && (TASK_STATUSES as readonly string[]).includes(status) ? status : null
   if (activeStatus) query = query.eq('status', activeStatus)
 
+  // 优先级筛选：同样白名单校验，只认 low / medium / high
+  const activePriority =
+    priority && (TASK_PRIORITIES as readonly string[]).includes(priority) ? priority : null
+  if (activePriority) query = query.eq('priority', activePriority)
+
   const keyword = q?.trim()
   if (keyword) query = query.ilike('title', `%${keyword}%`)
 
   const { data: tasks } = await query.order('created_at', { ascending: false })
 
-  // ---- 筛选标签的链接：保留搜索词，切换状态 ----
-  const filterLink = (value: string | null) => {
+  // ---- 筛选标签的链接：保留其他筛选和搜索词，只切换当前这一类 ----
+  const makeFilterLink = (type: 'status' | 'priority', value: string | null) => {
     const params = new URLSearchParams()
-    if (value) params.set('status', value)
+    if (type === 'status') {
+      if (value) params.set('status', value)
+      if (activePriority) params.set('priority', activePriority)
+    } else {
+      if (value) params.set('priority', value)
+      if (activeStatus) params.set('status', activeStatus)
+    }
     if (keyword) params.set('q', keyword)
     const qs = params.toString()
     return `/projects/${id}${qs ? `?${qs}` : ''}`
@@ -99,13 +115,19 @@ export default async function ProjectDetailPage({
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-900">任务</h2>
           {/* 编辑模式：传 task 让表单预填；否则是新建模式 */}
-          <TaskForm projectId={project.id} task={editTask} />
+          {/* key 很关键：点"编辑"时任务身份变了，强制表单组件"重新出生"，
+              否则它还记着旧的"收起"状态，表单就弹不出来（软导航状态不重置） */}
+          <TaskForm
+            key={editTask?.id ?? 'new'}
+            projectId={project.id}
+            task={editTask}
+          />
         </div>
 
         {/* 状态筛选标签 */}
         <div className="mb-4 flex flex-wrap gap-2">
           <Link
-            href={filterLink(null)}
+            href={makeFilterLink('status', null)}
             className={`rounded-full px-3 py-1 text-sm ${
               !activeStatus
                 ? 'bg-zinc-900 text-white'
@@ -117,7 +139,7 @@ export default async function ProjectDetailPage({
           {TASK_STATUSES.map((statusValue) => (
             <Link
               key={statusValue}
-              href={filterLink(statusValue)}
+              href={makeFilterLink('status', statusValue)}
               className={`rounded-full px-3 py-1 text-sm ${
                 activeStatus === statusValue
                   ? 'bg-zinc-900 text-white'
@@ -129,6 +151,33 @@ export default async function ProjectDetailPage({
           ))}
         </div>
 
+        {/* 优先级筛选标签 */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Link
+            href={makeFilterLink('priority', null)}
+            className={`rounded-full px-3 py-1 text-sm ${
+              !activePriority
+                ? 'bg-zinc-900 text-white'
+                : 'bg-white text-zinc-600 hover:bg-zinc-100'
+            }`}
+          >
+            全部优先级
+          </Link>
+          {TASK_PRIORITIES.map((priorityValue) => (
+            <Link
+              key={priorityValue}
+              href={makeFilterLink('priority', priorityValue)}
+              className={`rounded-full px-3 py-1 text-sm ${
+                activePriority === priorityValue
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-white text-zinc-600 hover:bg-zinc-100'
+              }`}
+            >
+              {TASK_PRIORITY_LABELS[priorityValue]}
+            </Link>
+          ))}
+        </div>
+
         {/* 标题搜索框：原生 GET 表单，提交后 URL 变成 ?q=... */}
         <form
           method="GET"
@@ -136,6 +185,7 @@ export default async function ProjectDetailPage({
           className="mb-5 flex gap-2"
         >
           {activeStatus && <input type="hidden" name="status" value={activeStatus} />}
+          {activePriority && <input type="hidden" name="priority" value={activePriority} />}
           <input
             name="q"
             type="text"
@@ -155,10 +205,10 @@ export default async function ProjectDetailPage({
         {!tasks || tasks.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
             <p className="text-zinc-900">
-              {activeStatus || keyword ? '没有符合条件的任务' : '还没有任务'}
+              {activeStatus || activePriority || keyword ? '没有符合条件的任务' : '还没有任务'}
             </p>
             <p className="mt-1 text-sm text-zinc-600">
-              {activeStatus || keyword
+              {activeStatus || activePriority || keyword
                 ? '换个筛选条件或搜索词试试'
                 : '点击"新建任务"添加第一个任务吧'}
             </p>

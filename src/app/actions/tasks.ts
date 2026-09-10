@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { TASK_STATUSES } from '@/lib/tasks'
+import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/tasks'
 
 export type TaskState = {
   error?: string
@@ -26,10 +26,15 @@ export async function createTask(
   const title = String(formData.get('title') ?? '').trim()
   const description = String(formData.get('description') ?? '').trim()
   const dueDate = String(formData.get('dueDate') ?? '').trim()
+  const priority = String(formData.get('priority') ?? '').trim()
 
   if (!projectId) return { error: '缺少项目 ID' }
   if (!title) return { error: '任务标题不能为空' }
   if (title.length > 200) return { error: '任务标题不能超过 200 个字' }
+  // 优先级必须落在三档之一，防止表单被改坏后塞进乱七八糟的值
+  if (priority && !TASK_PRIORITIES.includes(priority as never)) {
+    return { error: '优先级只能选 低/中/高' }
+  }
 
   const supabase = await createClient()
 
@@ -44,6 +49,8 @@ export async function createTask(
     title,
     description: description || null,
     due_date: dueDate || null,
+    // 表单没传（旧表单）就交给数据库默认值：medium（中）
+    priority: priority || 'medium',
   })
 
   if (error) return { error: error.message }
@@ -52,7 +59,7 @@ export async function createTask(
   redirect(`/projects/${projectId}`)
 }
 
-/** 编辑任务（标题 / 描述 / 截止时间） */
+/** 编辑任务（标题 / 描述 / 截止时间 / 优先级） */
 export async function updateTask(
   _prevState: TaskState,
   formData: FormData
@@ -62,9 +69,14 @@ export async function updateTask(
   const title = String(formData.get('title') ?? '').trim()
   const description = String(formData.get('description') ?? '').trim()
   const dueDate = String(formData.get('dueDate') ?? '').trim()
+  const priority = String(formData.get('priority') ?? '').trim()
 
   if (!id || !projectId) return { error: '缺少任务或项目 ID' }
   if (!title) return { error: '任务标题不能为空' }
+  // 优先级必须落在三档之一
+  if (priority && !TASK_PRIORITIES.includes(priority as never)) {
+    return { error: '优先级只能选 低/中/高' }
+  }
 
   const supabase = await createClient()
 
@@ -75,6 +87,9 @@ export async function updateTask(
       title,
       description: description || null,
       due_date: dueDate || null,
+      // 只有表单确实传了优先级才更新这一栏：
+      // 防止旧表单没传时，把任务原有的"高"误改成"中"
+      ...(priority ? { priority } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)

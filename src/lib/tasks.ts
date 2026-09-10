@@ -17,3 +17,19 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   done: '已完成',
   cancelled: '已取消',
 }
+
+/**
+ * 任务优先级常量（客户端 + 服务端共用）
+ * 和状态章一套写法：数据库存英文小写，界面显示中文
+ */
+export const TASK_PRIORITIES = ['low', 'medium', 'high'] as const
+
+/** 任务优先级类型：只能是这三档之一 */
+export type TaskPriority = (typeof TASK_PRIORITIES)[number]
+
+/** 优先级的中文显示名 */
+export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
+  low: '低',
+  medium: '中',
+  high: '高',
+}
