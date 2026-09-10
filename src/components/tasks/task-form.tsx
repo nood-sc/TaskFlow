@@ -2,6 +2,7 @@
 
 import { useState, useActionState } from 'react'
 import { createTask, updateTask } from '@/app/actions/tasks'
+import { TASK_PRIORITIES, TASK_PRIORITY_LABELS } from '@/lib/tasks'
 
 type TaskFormProps = {
   projectId: string
@@ -11,6 +12,7 @@ type TaskFormProps = {
     title: string
     description: string | null
     due_date: string | null
+    priority: string
   } | null
 }
 
@@ -75,18 +77,40 @@ export default function TaskForm({ projectId, task = null }: TaskFormProps) {
         placeholder="任务描述（选填）"
         className="mt-2 w-full resize-none rounded-lg border border-zinc-400 px-3 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-600 focus:border-zinc-600"
       />
-      <div className="mt-2">
-        <label htmlFor="dueDate" className="text-xs text-zinc-500">
-          截止时间
-        </label>
-        <input
-          id="dueDate"
-          name="dueDate"
-          type="date"
-          // 数据库存的是完整时间戳，取前 10 位就是 YYYY-MM-DD，正好填进 date 输入框
-          defaultValue={isEditing ? (task.due_date ? task.due_date.slice(0, 10) : '') : ''}
-          className="mt-1 rounded-lg border border-zinc-400 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-600"
-        />
+      <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+        <div>
+          <label htmlFor="dueDate" className="text-xs text-zinc-500">
+            截止时间
+          </label>
+          <input
+            id="dueDate"
+            name="dueDate"
+            type="date"
+            // 数据库存的是完整时间戳，取前 10 位就是 YYYY-MM-DD，正好填进 date 输入框
+            defaultValue={isEditing ? (task.due_date ? task.due_date.slice(0, 10) : '') : ''}
+            className="mt-1 block rounded-lg border border-zinc-400 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-600"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="priority" className="text-xs text-zinc-500">
+            优先级
+          </label>
+          {/* name="priority" 让 React 把选中的值打包进 FormData，交给 Server Action */}
+          <select
+            id="priority"
+            name="priority"
+            // 编辑模式：预填任务原有的优先级；新建模式：默认"中"
+            defaultValue={isEditing ? task.priority : 'medium'}
+            className="mt-1 block rounded-lg border border-zinc-400 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-600"
+          >
+            {TASK_PRIORITIES.map((priority) => (
+              <option key={priority} value={priority}>
+                {TASK_PRIORITY_LABELS[priority]}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="mt-3 flex items-center gap-2">

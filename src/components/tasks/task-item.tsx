@@ -1,7 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { TASK_STATUSES, TASK_STATUS_LABELS, type TaskStatus } from '@/lib/tasks'
+import {
+  TASK_STATUSES,
+  TASK_STATUS_LABELS,
+  TASK_PRIORITY_LABELS,
+  type TaskStatus,
+  type TaskPriority,
+} from '@/lib/tasks'
 import { updateTaskStatus, deleteTask } from '@/app/actions/tasks'
 
 /** 每种状态对应的徽章配色 */
@@ -12,12 +18,20 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   cancelled: 'bg-red-50 text-red-600',
 }
 
+/** 每种优先级对应的徽章配色：低=灰、中=蓝、高=红 */
+const PRIORITY_COLORS: Record<TaskPriority, string> = {
+  low: 'bg-zinc-50 text-zinc-500',
+  medium: 'bg-blue-50 text-blue-600',
+  high: 'bg-red-50 text-red-600',
+}
+
 type TaskItemProps = {
   task: {
     id: string
     title: string
     description: string | null
     status: TaskStatus
+    priority: TaskPriority
     due_date: string | null
   }
   projectId: string
@@ -41,6 +55,12 @@ export default function TaskItem({ task, projectId }: TaskItemProps) {
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status]}`}
             >
               {TASK_STATUS_LABELS[task.status]}
+            </span>
+            {/* 优先级徽章：低=灰 中=蓝 高=红 */}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}
+            >
+              {TASK_PRIORITY_LABELS[task.priority]}
             </span>
             <span className="font-medium text-zinc-900">{task.title}</span>
           </div>
